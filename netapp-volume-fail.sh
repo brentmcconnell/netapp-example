@@ -1,9 +1,12 @@
 #!/bin/bash -x
-RG=netapp-cmk-fail-rg
-NETAPP_ACCOUNT=netapp-acct-1
-NETAPP_POOL=netapp-pool-1
-NETAPP_VOLUME=netapp-vol-1
-KV_NAME=netapp-kv-1
+PREFIX=xyz
+RG=$PREFIX-netapp-cmk-fail-rg
+NETAPP_ACCOUNT=$PREFIX-netapp-acct-1
+NETAPP_POOL=$PREFIX-netapp-pool-1
+NETAPP_VOLUME=$PREFIX-netapp-vol-1
+KV_NAME=$PREFIX-netapp-kv-1
+VNET=$PREFIX-vnet-1
+SUBNET=$PREFIX-subnet-1
 RND=$(echo $RANDOM | grep -o ..$)
 CLOUD=$(az cloud show --query name -o tsv)
 
@@ -32,21 +35,21 @@ az group create \
 
 #create vnet and subnet
 az network vnet create \
-    --name vnet-1 \
+    --name $VNET \
     --resource-group $RG \
     --address-prefix 10.0.0.0/16 \
-    --subnet-name subnet-1 \
+    --subnet-name $SUBNET \
     --subnet-prefixes 10.0.0.0/24
 
 #create subnet for netapp
 az network vnet subnet create \
     --resource-group $RG \
-    --vnet-name vnet-1 \
-    --name subnet-netapp \
+    --vnet-name $VNET \
+    --name $SUBNET-netapp \
     --address-prefixes 10.0.1.0/27 \
     --delegations Microsoft.Netapp/volumes 
 
-SUBNET_ID=$(az network vnet subnet show --vnet-name vnet-1 -n subnet-netapp -g $RG --query id -o tsv)
+SUBNET_ID=$(az network vnet subnet show --vnet-name $VNET -n $SUBNET-netapp -g $RG --query id -o tsv)
 
 az keyvault create \
     --location $LOCATION \
@@ -67,7 +70,7 @@ az network private-dns link vnet create \
     --resource-group $RG \
     --zone-name privatelink.file.core.windows.net \
     --name link-to-vnet \
-    --virtual-network vnet-1 \
+    --virtual-network $VNET \
     --registration-enabled false
 
 # get the keyvault id
@@ -85,8 +88,8 @@ az keyvault key create \
 az network private-endpoint create \
     --name keyvault-endpoint \
     --resource-group $RG \
-    --vnet-name vnet-1 \
-    --subnet subnet-1 \
+    --vnet-name $VNET \
+    --subnet $SUBNET \
     --private-connection-resource-id $kv_resource_id \
     --group-ids vault \
     --connection-name keyvault-connection
@@ -156,7 +159,7 @@ az netappfiles volume create \
     --service-level standard \
     --usage-threshold 100 \
     --file-path "volume1" \
-    --vnet vnet-1 \
+    --vnet $VNET \
     --subnet-id $SUBNET_ID \
     --network-features Standard \
     --protocol-types NFSv4.1 \
